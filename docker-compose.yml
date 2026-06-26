@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  n8n-mcp:
+    image: ghcr.io/czlonkowski/n8n-mcp:latest
+    container_name: n8n-mcp
+    ports:
+      - "3001:3001"
+    environment:
+      # MCP Server Configuration
+      N8N_MCP_HOST: "0.0.0.0"
+      N8N_MCP_PORT: "3001"
+
+      # n8n Instance Connection (your existing n8n)
+      N8N_INSTANCE_URL: "http://n8n:5678"
+      N8N_API_KEY: "${N8N_API_KEY}"
+
+      # Logging
+      LOG_LEVEL: "info"
+
+      # Node Documentation Cache
+      N8N_MCP_CACHE_NODES: "true"
+      N8N_MCP_CACHE_TTL: "3600"
+
+    networks:
+      - unraid-network
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Mount for logs
+    volumes:
+      - n8n-mcp-logs:/app/logs
+
+networks:
+  unraid-network:
+    external: true
+
+volumes:
+  n8n-mcp-logs:
+    driver: local
