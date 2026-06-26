@@ -1,0 +1,39 @@
+{
+  "skills": [
+    {
+      "name": "disk-status",
+      "description": "Check disk usage across monitored paths and alert if thresholds are exceeded",
+      "category": "monitoring",
+      "command": "ssh -i ~/.secret/claude_key root@10.1.10.10 'bash /path/to/scripts/disk_monitor.sh'",
+      "timeout_seconds": 30,
+      "returns": "json",
+      "requires_confirmation": false,
+      "use_cases": [
+        "Regular disk usage monitoring",
+        "Alert when capacity thresholds exceeded",
+        "Trend analysis of storage growth",
+        "Cleanup recommendations"
+      ]
+    },
+    {
+      "name": "docker-health",
+      "description": "Check Docker container health status",
+      "category": "monitoring",
+      "command": "ssh -i ~/.secret/claude_key root@10.1.10.10 'docker ps --format json'",
+      "timeout_seconds": 15,
+      "returns": "json",
+      "requires_confirmation": false,
+      "status": "planned"
+    },
+    {
+      "name": "restart-container",
+      "description": "Gracefully restart a Docker container",
+      "category": "container-management",
+      "command": "ssh -i ~/.secret/claude_key root@10.1.10.10 'docker restart CONTAINER_NAME'",
+      "timeout_seconds": 30,
+      "returns": "text",
+      "requires_confirmation": true,
+      "status": "planned"
+    }
+  ]
+}
