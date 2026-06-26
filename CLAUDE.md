@@ -168,6 +168,17 @@ docker logs binhex-radarr --tail 50
 4. **Preventative maintenance** — Weekly health checks, database integrity, backup verification
 5. **n8n automation** — Support workflow creation/modification for Plex/media tasks
 
+## MCP Setup
+- **n8n-mcp**: Runs locally via `npx n8n-mcp` in stdio mode
+- **Config**: `.mcp.json` defines the MCP server
+- **Credentials**: Environment variables in `.env` (N8N_API_URL, N8N_API_KEY)
+- **Purpose**: Gives Claude access to 2,063 n8n nodes for workflow design
+
+**To activate n8n-MCP in Claude Code:**
+1. Ensure `.env` has N8N_INSTANCE_URL and N8N_API_KEY
+2. Claude Code will automatically load `.mcp.json`
+3. n8n node documentation becomes available to me
+
 ## Notes
 - Storage is nearly full (92%) — prioritize monitoring and cleanup
 - Docker volume is 83% full — may need pruning
