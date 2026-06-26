@@ -1,0 +1,86 @@
+{
+  "name": "Telegram Handler (Subworkflow)",
+  "description": "Reusable Telegram interface for sending/receiving messages. Called by parent workflows.",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message", "callback_query"],
+        "additionalFields": {
+          "chatIds": ""
+        }
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [100, 300],
+      "webhookId": "telegram-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse incoming Telegram message\nconst body = $input.first().json;\n\nconst message = body.message || body.edited_message;\nconst callbackQuery = body.callback_query;\n\nif (message) {\n  return {\n    type: 'message',\n    chatId: message.chat.id,\n    userId: message.from.id,\n    username: message.from.username,\n    text: message.text || '',\n    messageId: message.message_id,\n    isCommand: message.text?.startsWith('/') || false,\n    timestamp: new Date(message.date * 1000).toISOString(),\n    raw: message\n  };\n} else if (callbackQuery) {\n  return {\n    type: 'callback_query',\n    chatId: callbackQuery.from.id,\n    userId: callbackQuery.from.id,\n    username: callbackQuery.from.username,\n    callbackId: callbackQuery.id,\n    callbackData: callbackQuery.data,\n    messageId: callbackQuery.message?.message_id,\n    timestamp: new Date().toISOString(),\n    raw: callbackQuery\n  };\n}\n\nreturn null;"
+      },
+      "id": "parse-message",
+      "name": "Parse Telegram Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $node['Parse Telegram Input'].json.type }}",
+              "value2": "message",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "is-message",
+      "name": "Is Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node['Parse Telegram Input'].json.chatId }}",
+        "text": "{{ $node['Parse Telegram Input'].json.text }}"
+      },
+      "id": "send-message",
+      "name": "Send Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [700, 250]
+    },
+    {
+      "parameters": {
+        "queryId": "={{ $node['Parse Telegram Input'].json.callbackId }}",
+        "text": "Processing your request..."
+      },
+      "id": "answer-callback",
+      "name": "Answer Callback",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [700, 350]
+    }
+  ],
+  "connections": {
+    "telegram-trigger": {
+      "main": [["parse-message"]]
+    },
+    "parse-message": {
+      "main": [["is-message"]]
+    },
+    "is-message": {
+      "main": [["send-message"], ["answer-callback"]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}
