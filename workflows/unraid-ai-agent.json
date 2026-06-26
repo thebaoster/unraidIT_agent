@@ -1,0 +1,129 @@
+{
+  "name": "UnraidIT AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "unraid-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Telegram Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nreturn {\n  chatId: body.message?.chat?.id || body.callback_query?.from?.id,\n  userId: body.message?.from?.id || body.callback_query?.from?.id,\n  text: body.message?.text || body.callback_query?.data,\n  messageId: body.message?.message_id,\n  isCallback: !!body.callback_query\n};"
+      },
+      "id": "parse-telegram",
+      "name": "Parse Telegram Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": "={{ $secrets.CLAUDE_API_KEY }}",
+        "requestMethod": "POST",
+        "contentType": "application/json",
+        "body": "{\n  \"model\": \"gpt-4\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an AI assistant managing an Unraid home server. Help the user with: disk monitoring, container management, Radarr/Sonarr control, and system cleanup. Always respond with safe, non-destructive commands first. For dangerous operations, ask for confirmation.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $node['Parse Telegram Message'].json.text }}\"\n    }\n  ]\n}"
+      },
+      "id": "claude-llm",
+      "name": "Claude LLM Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst content = response.choices?.[0]?.message?.content || '';\n\n// Parse Claude's response to identify actions\nconst actions = [];\n\nif (content.toLowerCase().includes('disk')) {\n  actions.push('check_disk');\n}\nif (content.toLowerCase().includes('restart')) {\n  actions.push('restart_container');\n}\nif (content.toLowerCase().includes('cleanup')) {\n  actions.push('cleanup');\n}\nif (content.toLowerCase().includes('radarr')) {\n  actions.push('radarr_command');\n}\nif (content.toLowerCase().includes('sonarr')) {\n  actions.push('sonarr_command');\n}\n\nreturn {\n  claudeResponse: content,\n  actions: actions,\n  needsExecution: actions.length > 0\n};"
+      },
+      "id": "parse-actions",
+      "name": "Parse Claude Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {\n          "boolean": [\n            {\n              "value1": "={{ $node['Parse Claude Actions'].json.needsExecution }}",\n              "operation": "equals",\n              "value2": true\n            }\n          ]\n        }\n      },
+      "id": "if-execute",
+      "name": "Execute Actions?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "host": "10.1.10.10",
+        "port": 22,
+        "username": "root",
+        "privateKey": "{{ $env.SSH_PRIVATE_KEY }}",
+        "command": "/opt/claude-agent/scripts/disk_monitor.sh"
+      },
+      "id": "check-disk",
+      "name": "Check Disk Space",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "url": "{{ $env.N8N_INSTANCE_URL }}/api/v1/workflows/execute",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "httpHeaderAuth": "X-N8N-API-KEY={{ $env.N8N_API_KEY }}",
+        "requestMethod": "POST",
+        "body": "{\n  \"workflowId\": \"{{ $node['Parse Telegram Message'].json.workflowId }}\",\n  \"data\": {\n    \"action\": \"{{ $node['Parse Claude Actions'].json.actions[0] }}\",\n    \"params\": {}\n  }\n}"
+      },
+      "id": "execute-command",
+      "name": "Execute Command via n8n",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1100, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $node['Parse Telegram Message'].json.chatId }}",
+        "text": "={{ $node['Parse Claude Actions'].json.claudeResponse + '\\n\\nExecution: ' + ($node['Check Disk'].json.summary?.status || 'Pending') }}"
+      },
+      "id": "send-response",
+      "name": "Send Telegram Response",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1300, 300]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [["parse-telegram"]]
+    },
+    "parse-telegram": {
+      "main": [["claude-llm"]]
+    },
+    "claude-llm": {
+      "main": [["parse-actions"]]
+    },
+    "parse-actions": {
+      "main": [["if-execute"]]
+    },
+    "if-execute": {
+      "main": [["check-disk"], ["send-response"]]
+    },
+    "check-disk": {
+      "main": [["send-response"]]
+    },
+    "execute-command": {
+      "main": [["send-response"]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
