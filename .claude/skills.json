@@ -26,6 +26,36 @@
       "status": "planned"
     },
     {
+      "name": "cleanup-suggestions",
+      "description": "Get safe cleanup recommendations to free disk space",
+      "category": "maintenance",
+      "command": "ssh -i ~/.secret/claude_key root@10.1.10.10 'bash /opt/claude-agent/scripts/cleanup_suggestions.sh'",
+      "timeout_seconds": 30,
+      "returns": "json",
+      "requires_confirmation": false,
+      "use_cases": [
+        "Identify safe cleanup options",
+        "Estimate space that can be freed",
+        "Get recommendations for disk space recovery"
+      ],
+      "status": "active"
+    },
+    {
+      "name": "execute-cleanup",
+      "description": "Execute a cleanup action (docker-prune, log-cleanup, cache-cleanup)",
+      "category": "maintenance",
+      "command": "ssh -i ~/.secret/claude_key root@10.1.10.10 'bash /opt/claude-agent/scripts/execute_cleanup.sh ACTION_ID --confirm'",
+      "timeout_seconds": 60,
+      "returns": "json",
+      "requires_confirmation": true,
+      "safe_actions": [
+        "docker-prune: Remove unused Docker images/volumes (3GB estimated)",
+        "log-cleanup: Rotate old logs (500MB estimated)",
+        "cache-cleanup: Clear app caches (1GB estimated)"
+      ],
+      "status": "active"
+    },
+    {
       "name": "restart-container",
       "description": "Gracefully restart a Docker container",
       "category": "container-management",
